@@ -32,5 +32,5 @@ resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = 
   properties: {}
 }
 
-output documentIntelligenceEndpoint string = 'https://${projectName}.cognitiveservices.azure.com/'
+output documentIntelligenceEndpoint string = aiFoundry.properties.endpoint
 output aiFoundryPrincipalId string = aiFoundry.identity.principalId
