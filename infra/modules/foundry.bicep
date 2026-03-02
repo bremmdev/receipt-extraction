@@ -3,6 +3,7 @@ targetScope = 'resourceGroup'
 param projectName string
 param location string
 
+// Foundry resource is a variant of a CognitiveServices/account resource type
 resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   name: projectName
   location: location
@@ -20,6 +21,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 
+// Developer APIs are exposed via a project
 resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
   name: projectName
   parent: aiFoundry
