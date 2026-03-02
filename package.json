@@ -9,7 +9,7 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "deploy:infra": "az deployment sub create --location westeurope --template-file infra/main.bicep --parameters infra/parameters-main.json"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
