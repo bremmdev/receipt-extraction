@@ -21,16 +21,5 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 
-// Developer APIs are exposed via a project
-resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
-  name: projectName
-  parent: aiFoundry
-  location: location
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {}
-}
-
 output documentIntelligenceEndpoint string = aiFoundry.properties.endpoint
 output aiFoundryPrincipalId string = aiFoundry.identity.principalId
