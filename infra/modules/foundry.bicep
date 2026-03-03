@@ -18,6 +18,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     allowProjectManagement: true
     customSubDomainName: '${projectName}-bremmdev'
     disableLocalAuth: false
+    publicNetworkAccess: 'Enabled'
   }
 }
 

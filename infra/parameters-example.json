@@ -7,6 +7,9 @@
     },
     "projectName": {
       "value": "project name"
+    },
+    "storageAccountName": {
+      "value": "receiptextractionsaccount"
     }
   }
 }
