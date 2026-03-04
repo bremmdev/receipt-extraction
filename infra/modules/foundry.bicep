@@ -19,6 +19,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     customSubDomainName: '${projectName}-bremmdev'
     disableLocalAuth: false
     publicNetworkAccess: 'Enabled'
+    restore: true // Restore if we soft-deleted earlier
   }
 }
 

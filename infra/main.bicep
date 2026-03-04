@@ -31,6 +31,7 @@ module functionApp 'modules/functionApp.bicep' = {
     projectName: projectName
     location: location
     storageAccountName: storageAccountName
+    deploymentContainerUrl: storageAccount.outputs.deploymentContainerUrl
   }
 }
 
