@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Azure.AI.DocumentIntelligence;
-using System.Threading.Tasks;
 using Azure;
 
 namespace ReceiptExtraction.Functions;
+
+
+public record ReceiptItem(string Description, double? Price);
 
 public class analyzeReceipt
 {
@@ -19,18 +21,27 @@ public class analyzeReceipt
         _logger = logger;
     }
 
+
+    private async Task<ReceiptItem[]> GetReceiptItemsAsync(string imageUrl)
+    {
+        Operation<AnalyzeResult> operation = await _client.AnalyzeDocumentAsync(WaitUntil.Completed, "prebuilt-receipt", new Uri(imageUrl));
+        AnalyzeResult result = operation.Value;
+        DocumentField itemsField = result.Documents[0].Fields["Items"];
+        return itemsField.ValueList.Select(item => new ReceiptItem(item.ValueDictionary["Description"].ValueString, item.ValueDictionary["TotalPrice"].ValueCurrency?.Amount)).ToArray();
+    }
+
     [Function("analyzeReceipt")]
     public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequest req)
     {
-        _logger.LogInformation("C# HTTP trigger function processed a request.");
+        string imageUrl = req.Query["imageUrl"].ToString() ?? "";
 
-        Operation<AnalyzeResult> operation = await _client.AnalyzeDocumentAsync(
-        WaitUntil.Completed,
-        "prebuilt-receipt",
-        new Uri("https://raw.githubusercontent.com/Azure-Samples/cognitive-services-REST-api-samples/master/curl/form-recognizer/rest-api/receipt.png")
-        );
-        AnalyzeResult result = operation.Value;
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            return new BadRequestObjectResult("Image URL is required");
+        }
 
-        return new OkObjectResult(result);
+        ReceiptItem[] items = await GetReceiptItemsAsync(imageUrl);
+
+        return new OkObjectResult(items);
     }
 }
