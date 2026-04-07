@@ -18,12 +18,61 @@ public class AnalyzeReceipt
         _logger = logger;
     }
 
-    private async Task<IReadOnlyList<ReceiptItem>> GetReceiptItemsAsync(BinaryData imageData)
+    private async Task<IReadOnlyList<ReceiptItem>> GetReceiptItemsAsync(BinaryData imageData, CancellationToken cancellationToken)
     {
-        Operation<AnalyzeResult> operation = await _client.AnalyzeDocumentAsync(WaitUntil.Completed, "prebuilt-receipt", imageData);
+        Operation<AnalyzeResult> operation;
+
+        try
+        {
+            operation = await _client.AnalyzeDocumentAsync(WaitUntil.Completed, "prebuilt-receipt", imageData, cancellationToken: cancellationToken);
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogWarning(ex, "Document Intelligence rejected the receipt analysis request.");
+            throw new InvalidOperationException("Receipt analysis failed. Make sure the uploaded file is a supported receipt image and try again.", ex);
+        }
+
         AnalyzeResult result = operation.Value;
-        DocumentField itemsField = result.Documents[0].Fields["Items"];
-        return itemsField.ValueList.Select(item => new ReceiptItem(item.ValueDictionary["Description"].ValueString, item.ValueDictionary["TotalPrice"].ValueCurrency?.Amount)).ToList();
+        if (result.Documents.Count == 0)
+        {
+            _logger.LogInformation("Receipt analysis completed without detecting any receipt documents.");
+            throw new InvalidOperationException("No receipt could be detected in the uploaded image.");
+        }
+
+        AnalyzedDocument receiptDocument = result.Documents[0];
+        if (!receiptDocument.Fields.TryGetValue("Items", out DocumentField? itemsField) || itemsField.ValueList is null)
+        {
+            _logger.LogInformation("Receipt analysis found a document but no line items.");
+            return Array.Empty<ReceiptItem>();
+        }
+
+        List<ReceiptItem> items = new();
+        foreach (DocumentField itemField in itemsField.ValueList)
+        {
+            IReadOnlyDictionary<string, DocumentField>? itemValues = itemField.ValueDictionary;
+            if (itemValues is null)
+            {
+                _logger.LogWarning("Skipping receipt item because the item payload was not a dictionary.");
+                continue;
+            }
+
+            if (!itemValues.TryGetValue("Description", out DocumentField? descriptionField) ||
+                string.IsNullOrWhiteSpace(descriptionField.ValueString))
+            {
+                _logger.LogWarning("Skipping receipt item because it is missing a description.");
+                continue;
+            }
+
+            double? price = null;
+            if (itemValues.TryGetValue("TotalPrice", out DocumentField? totalPriceField))
+            {
+                price = totalPriceField.ValueCurrency?.Amount;
+            }
+
+            items.Add(new ReceiptItem(descriptionField.ValueString, price));
+        }
+
+        return items;
     }
 
     private async Task<(string? Error, BinaryData? ImageData)> ProcessFormData(HttpRequest req, CancellationToken cancellationToken)
@@ -72,8 +121,24 @@ public class AnalyzeReceipt
             return new BadRequestObjectResult("No image data found in the request.");
         }
 
-        IReadOnlyList<ReceiptItem> items = await GetReceiptItemsAsync(result.ImageData);
-        return new OkObjectResult(items);
+        try
+        {
+            IReadOnlyList<ReceiptItem> items = await GetReceiptItemsAsync(result.ImageData, cancellationToken);
+            return new OkObjectResult(items);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Receipt analysis failed validation.");
+            return new BadRequestObjectResult(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while processing receipt.");
+            return new ObjectResult("An unexpected error occurred while processing the receipt.")
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            };
+        }
     }
 }
 
