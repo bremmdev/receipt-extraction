@@ -1,3 +1,16 @@
+:root {
+  --color-dark: oklch(0.3089 0.1297 345.98);
+  --color-accent: oklch(0.5089 0.1553 6.07);
+  --color-highlight: oklch(86.5% 0.012 325.68);
+  --color-muted: oklch(55.4% 0.046 257.417);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'system-ui', sans-serif;
 }
