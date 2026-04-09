@@ -1,13 +1,12 @@
 <script lang="ts">
-    import type { ReceiptItem } from '../lib/types';
-    let { items }: { items: ReceiptItem[] } = $props();
+    import { receiptItemsStore } from '../lib/store.svelte';
 </script>
 
-{#if items.length > 0}
+{#if receiptItemsStore.items.length > 0}
 <section class="extracted-items">
 <h2>Extracted Items</h2>
   <ul>
-    {#each items as item}
+    {#each receiptItemsStore.items as item}
       <li><span>{item.description}</span> <span>€{item.price?.toFixed(2)}</span></li>
     {/each}
   </ul>

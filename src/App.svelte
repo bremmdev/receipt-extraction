@@ -1,15 +1,12 @@
 <script lang="ts">
-  import type { ReceiptItem } from './lib/types';
   import FileUpload from './components/FileUpload.svelte';
   import ExtractedItems from './components/ExtractedItems.svelte';
-
-  let receiptItems: ReceiptItem[] = $state([]);
 </script>
 
 <main>
   <h1>Receipt Extraction</h1>
-  <FileUpload onExtract={(data: ReceiptItem[]) => (receiptItems = data)} />
-  <ExtractedItems items={receiptItems} />
+  <FileUpload />
+  <ExtractedItems />
 </main>
 
 <style>

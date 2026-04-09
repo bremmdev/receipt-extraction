@@ -1,11 +1,5 @@
 <script lang="ts">
-  import type { ReceiptItem } from '../lib/types';
-
-  interface Props {
-    onExtract?: (data: ReceiptItem[]) => void;
-  }
-
-  let { onExtract }: Props = $props();
+  import { receiptItemsStore } from '../lib/store.svelte';
 
   /* STATE */
   let isDragging = $state(false);
@@ -49,7 +43,7 @@
   function handleClearSelection() {
     selectedFile = null;
     error = null;
-    onExtract?.([]);
+    receiptItemsStore.items = [];
   }
 
   async function handleSubmit(e: Event) {
@@ -57,10 +51,9 @@
     const formData = new FormData(e.target as HTMLFormElement);
     formData.append('file', selectedFile as File);
     error = null;
-    onExtract?.([]);
+    receiptItemsStore.items = [];
     isLoading = true;
     try {
-
       if(!selectedFile) {
         throw new Error('No file selected');
       }
@@ -75,9 +68,8 @@
       }
 
       const data = await response.json();
-      onExtract?.(data);
+      receiptItemsStore.items = data;
     } catch (e) {
-      console.error('Error:', error);
       if (e instanceof Error) {
         error = `${e.message}`;
       } else {
