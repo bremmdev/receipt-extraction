@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ReceiptItem } from './lib/types';
+  import type { ReceiptItem } from '../lib/types';
 
   interface Props {
     onExtract?: (data: ReceiptItem[]) => void;
@@ -7,10 +7,14 @@
 
   let { onExtract }: Props = $props();
 
+  /* STATE */
   let isDragging = $state(false);
   let selectedFile: File | null = $state(null);
+  let isLoading = $state(false);
+  let error = $state<string | null>(null);
   let fileInputEl: HTMLInputElement;
 
+  /* HANDLERS */
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
     isDragging = true;
@@ -42,19 +46,45 @@
     fileInputEl.click();
   }
 
+  function handleClearSelection() {
+    selectedFile = null;
+    error = null;
+    onExtract?.([]);
+  }
+
   async function handleSubmit(e: Event) {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     formData.append('file', selectedFile as File);
+    error = null;
+    onExtract?.([]);
+    isLoading = true;
     try {
+
+      if(!selectedFile) {
+        throw new Error('No file selected');
+      }
+
       const response = await fetch('https://receipt-extraction-func.azurewebsites.net/api/analyzeReceipt', {
         method: 'POST',
         body: formData,
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to extract receipt');
+      }
+
       const data = await response.json();
       onExtract?.(data);
-    } catch (error) {
+    } catch (e) {
       console.error('Error:', error);
+      if (e instanceof Error) {
+        error = `${e.message}`;
+      } else {
+        error = 'Extracting receipt failed. Please try again.';
+      }
+    } finally {
+      isLoading = false;
     }
   }
 
@@ -100,19 +130,27 @@
   {/if}
 </div>
 <div class="button-container">
-  <button type="submit">Extract Receipt</button>
-  <button type="button" onclick={() => (selectedFile = null)}>Clear Selection</button>
+  <button class="btn-primary" type="submit" disabled={isLoading}>{isLoading ? 'Extracting...' : 'Extract Receipt'}</button>
+  <button class="btn-secondary" type="button" onclick={handleClearSelection} disabled={isLoading}>Clear Selection</button>
 </div>
+{#if error}
+  <div class="error-container">
+    <p class="error">{error}</p>
+  </div>
+{/if}
 </form>
 
 <style>
+  form {
+    width: 100%;
+  }
+
   .dropzone {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     width: 100%;
-    max-width: 30rem;
     min-height: 20rem;
     border: 2px dashed color-mix(in oklch, var(--color-muted) 40%, transparent);
     border-radius: 1rem;
@@ -214,12 +252,40 @@
     font-size: 1rem;
     font-weight: 500;
     border: none;
-    background: var(--color-dark);
     color: white;
     cursor: pointer;
     transition: background 0.2s;
-    &:hover {
-      background: color-mix(in oklch, var(--color-dark) 80%, white);
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &.btn-primary {
+      background: var(--color-accent);
+      color: white;
+      &:hover {
+        background: color-mix(in oklch, var(--color-accent) 80%, white);
+      }
+    }
+
+    &.btn-secondary {
+      background: white;
+      color: var(--color-dark);
+      border: 1px solid var(--color-accent);
+      &:hover {
+        background: color-mix(in oklch, var(--color-accent) 10%, white);
+      }
     }
   }
+
+  .error {
+      color: red;
+      font-weight: 500;
+    }
+
+    .error-container {
+      margin-top: 1rem;
+      text-align: center;
+    }
 </style>
