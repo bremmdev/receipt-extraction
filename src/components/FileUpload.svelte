@@ -209,8 +209,9 @@
   }
 
   .hint {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     color: var(--color-muted);
+    font-weight: 500;
     margin: 0.25rem 0 0;
   }
 
