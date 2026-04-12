@@ -1,5 +1,5 @@
-import type { ReceiptItem } from "./types";
+import type { SplitReceipt } from "./types";
 
-export const receiptItemsStore = $state<{ items: ReceiptItem[] }>({
-    items: [],
+export const splitReceiptStore = $state<{ receipt: SplitReceipt | null }>({
+    receipt: null,
 });

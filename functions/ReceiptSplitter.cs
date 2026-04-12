@@ -2,8 +2,8 @@ using ReceiptExtraction.Functions;
 
 internal class ReceiptSplitter
 {
-    private static readonly List<string> myItems = ["tuc"];
-    private static readonly List<string> herItems = ["hummus", "kaas"];
+    private static readonly List<string> myItems = ["augurk", "beyond", "blauwe bes", "espress", "fanta", "garnalen", "gyoza", "kuhne", "lay", "lekkerbek", "lindt", "maki", "pokebowl met garnaal", "tuc", "uien", "witte kool", "zalm"];
+    private static readonly List<string> herItems = ["cranberry", "hummus", "kaas", "loempia", "olijven", "perla", "pokebowl vegatarisch"];
     internal static SplitReceipt SplitReceipt(IReadOnlyList<ReceiptItem> receiptItems)
     {
         var myItemsList = receiptItems

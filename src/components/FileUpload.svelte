@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { receiptItemsStore } from '../lib/store.svelte';
+  import { splitReceiptStore } from '../lib/store.svelte';
 
   /* STATE */
   let isDragging = $state(false);
@@ -43,7 +43,7 @@
   function handleClearSelection() {
     selectedFile = null;
     error = null;
-    receiptItemsStore.items = [];
+    splitReceiptStore.receipt = null;
   }
 
   async function handleSubmit(e: Event) {
@@ -51,7 +51,7 @@
     const formData = new FormData(e.target as HTMLFormElement);
     formData.append('file', selectedFile as File);
     error = null;
-    receiptItemsStore.items = [];
+    splitReceiptStore.receipt = null;
     isLoading = true;
     try {
       if(!selectedFile) {
@@ -71,7 +71,7 @@
       }
 
       const data = await response.json();
-      receiptItemsStore.items = data;
+      splitReceiptStore.receipt = data;
     } catch (e) {
       if (e instanceof Error) {
         error = `${e.message}`;
