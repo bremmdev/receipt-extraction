@@ -63,10 +63,10 @@ public class AnalyzeReceipt
                 continue;
             }
 
-            double? price = null;
+            decimal? price = null;
             if (itemValues.TryGetValue("TotalPrice", out DocumentField? totalPriceField))
             {
-                price = totalPriceField.ValueCurrency?.Amount;
+                price = totalPriceField.ValueCurrency is { Amount: double amount } ? (decimal?)amount : null;
             }
 
             items.Add(new ReceiptItem(descriptionField.ValueString, price));
@@ -109,22 +109,23 @@ public class AnalyzeReceipt
         [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequest req,
         CancellationToken cancellationToken)
     {
-        (string? Error, BinaryData? ImageData) result = await ProcessFormData(req, cancellationToken);
+        (string? Error, BinaryData? ImageData) = await ProcessFormData(req, cancellationToken);
 
-        if (result.Error is not null)
+        if (Error is not null)
         {
-            return new BadRequestObjectResult(result.Error);
+            return new BadRequestObjectResult(Error);
         }
 
-        if (result.ImageData is null)
+        if (ImageData is null)
         {
             return new BadRequestObjectResult("No image data found in the request.");
         }
 
         try
         {
-            IReadOnlyList<ReceiptItem> items = await GetReceiptItemsAsync(result.ImageData, cancellationToken);
-            return new OkObjectResult(items);
+            IReadOnlyList<ReceiptItem> items = await GetReceiptItemsAsync(ImageData, cancellationToken);
+            SplitReceipt splitReceipt = ReceiptSplitter.SplitReceipt(items);
+            return new OkObjectResult(splitReceipt);
         }
         catch (InvalidOperationException ex)
         {
@@ -142,4 +143,4 @@ public class AnalyzeReceipt
     }
 }
 
-public record ReceiptItem(string Description, double? Price);
+public record ReceiptItem(string Description, decimal? Price);

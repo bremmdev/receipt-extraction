@@ -58,7 +58,10 @@
         throw new Error('No file selected');
       }
 
-      const response = await fetch('https://receipt-extraction-func.azurewebsites.net/api/analyzeReceipt', {
+      const isLocal = document.location.hostname === 'localhost';
+      const url = isLocal ? 'http://localhost:7071/api/analyzeReceipt' : 'https://receipt-extraction-func.azurewebsites.net/api/analyzeReceipt';
+
+      const response = await fetch(url, {
         method: 'POST',
         body: formData,
       });
