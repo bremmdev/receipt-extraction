@@ -4,6 +4,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Azure.AI.DocumentIntelligence;
 using Azure;
+using System.Text.Json;
 
 namespace ReceiptExtraction.Functions;
 
@@ -107,6 +108,7 @@ public class AnalyzeReceipt
     [Function("AnalyzeReceipt")]
     public async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequest req,
+        [BlobInput("rules/rules.json")] string rules,
         CancellationToken cancellationToken)
     {
         (string? Error, BinaryData? ImageData) = await ProcessFormData(req, cancellationToken);
@@ -124,7 +126,12 @@ public class AnalyzeReceipt
         try
         {
             IReadOnlyList<ReceiptItem> items = await GetReceiptItemsAsync(ImageData, cancellationToken);
-            SplitReceipt splitReceipt = ReceiptSplitter.SplitReceipt(items);
+
+            // we get the 'rules' from a rules.json in blob storage
+            var rulesDict = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(rules);
+            var myItemRules = rulesDict?["myItems"] ?? new List<string>();
+            var herItemRules = rulesDict?["herItems"] ?? new List<string>();
+            SplitReceipt splitReceipt = ReceiptSplitter.SplitReceipt(items, myItemRules, herItemRules);
             return new OkObjectResult(splitReceipt);
         }
         catch (InvalidOperationException ex)
