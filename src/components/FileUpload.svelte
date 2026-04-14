@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { splitReceiptStore } from '../lib/store.svelte';
+  import { splitReceiptStore } from "../lib/store.svelte";
 
   /* STATE */
   let isDragging = $state(false);
@@ -24,7 +24,7 @@
     e.preventDefault();
     isDragging = false;
     const file = e.dataTransfer?.files[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file && file.type.startsWith("image/")) {
       selectedFile = file;
     }
   }
@@ -44,30 +44,33 @@
     selectedFile = null;
     error = null;
     splitReceiptStore.receipt = null;
+    fileInputEl.value = "";
   }
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
-    formData.append('file', selectedFile as File);
+    formData.append("file", selectedFile as File);
     error = null;
     splitReceiptStore.receipt = null;
     isLoading = true;
     try {
-      if(!selectedFile) {
-        throw new Error('No file selected');
+      if (!selectedFile) {
+        throw new Error("No file selected");
       }
 
-      const isLocal = document.location.hostname === 'localhost';
-      const url = isLocal ? 'http://localhost:7071/api/analyzeReceipt' : 'https://receipt-extraction-func.azurewebsites.net/api/analyzeReceipt';
+      const isLocal = document.location.hostname === "localhost";
+      const url = isLocal
+        ? "http://localhost:7071/api/analyzeReceipt"
+        : "https://receipt-extraction-func.azurewebsites.net/api/analyzeReceipt";
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to extract receipt');
+        throw new Error("Failed to extract receipt");
       }
 
       const data = await response.json();
@@ -76,63 +79,86 @@
       if (e instanceof Error) {
         error = `${e.message}`;
       } else {
-        error = 'Extracting receipt failed. Please try again.';
+        error = "Extracting receipt failed. Please try again.";
       }
     } finally {
       isLoading = false;
     }
   }
 
-  let previewUrl = $derived(selectedFile ? URL.createObjectURL(selectedFile) : null);
+  let previewUrl = $derived(
+    selectedFile ? URL.createObjectURL(selectedFile) : null,
+  );
 </script>
 
 <form onsubmit={handleSubmit}>
-<div
-  class="dropzone"
-  class:dragging={isDragging}
-  class:has-file={selectedFile}
-  role="button"
-  tabindex="0"
-  aria-label="Upload receipt image"
-  ondragover={handleDragOver}
-  ondragleave={handleDragLeave}
-  ondrop={handleDrop}
-  onclick={openFilePicker}
-  onkeydown={(e) => e.key === 'Enter' || e.key === ' ' ? openFilePicker() : null}
->
-  <input
-    bind:this={fileInputEl}
-    type="file"
-    accept="image/*"
-    hidden
-    onchange={handleFileChange}
-  />
+  <div
+    class="dropzone"
+    class:dragging={isDragging}
+    class:has-file={selectedFile}
+    role="button"
+    tabindex="0"
+    aria-label="Upload receipt image"
+    ondragover={handleDragOver}
+    ondragleave={handleDragLeave}
+    ondrop={handleDrop}
+    onclick={openFilePicker}
+    onkeydown={(e) =>
+      e.key === "Enter" || e.key === " " ? openFilePicker() : null}
+  >
+    <input
+      bind:this={fileInputEl}
+      type="file"
+      accept="image/*"
+      hidden
+      onchange={handleFileChange}
+    />
 
-  {#if previewUrl}
-    <img src={previewUrl} alt="Receipt preview" class="preview" />
-    <p class="file-name">{selectedFile?.name}</p>
-  {:else}
-    <div class="upload-icon" aria-hidden="true">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="17 8 12 3 7 8"/>
-        <line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-    </div>
-    <p class="primary-text">Drag & drop your receipt here</p>
-    <p class="secondary-text">or <span class="browse-link">browse files</span></p>
-    <p class="hint">Supports PNG, JPG, WEBP</p>
-  {/if}
-</div>
-<div class="button-container">
-  <button class="btn-primary" type="submit" disabled={isLoading}>{isLoading ? 'Extracting...' : 'Extract Receipt'}</button>
-  <button class="btn-secondary" type="button" onclick={handleClearSelection} disabled={isLoading}>Clear Selection</button>
-</div>
-{#if error}
-  <div class="error-container">
-    <p class="error">{error}</p>
+    {#if previewUrl}
+      <img src={previewUrl} alt="Receipt preview" class="preview" />
+      <p class="file-name">{selectedFile?.name}</p>
+    {:else}
+      <div class="upload-icon" aria-hidden="true">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+      </div>
+      <p class="primary-text">Drag & drop your receipt here</p>
+      <p class="secondary-text">
+        or <span class="browse-link">browse files</span>
+      </p>
+      <p class="hint">Supports PNG, JPG, WEBP</p>
+    {/if}
   </div>
-{/if}
+  <div class="button-container">
+    <button
+      class="btn-primary"
+      type="submit"
+      disabled={isLoading || !selectedFile}
+      >{isLoading ? "Extracting..." : "Extract Receipt"}</button
+    >
+    <button
+      class="btn-secondary"
+      type="button"
+      onclick={handleClearSelection}
+      disabled={isLoading || !selectedFile}>Clear Selection</button
+    >
+  </div>
+  {#if error}
+    <div class="error-container">
+      <p class="error">{error}</p>
+    </div>
+  {/if}
 </form>
 
 <style>
@@ -153,7 +179,9 @@
     cursor: pointer;
     padding: 2rem;
     box-sizing: border-box;
-    transition: border-color 0.2s, background 0.2s;
+    transition:
+      border-color 0.2s,
+      background 0.2s;
     outline: none;
     gap: 0.5rem;
     user-select: none;
@@ -276,12 +304,12 @@
   }
 
   .error {
-      color: red;
-      font-weight: 500;
-    }
+    color: red;
+    font-weight: 500;
+  }
 
-    .error-container {
-      margin-top: 1rem;
-      text-align: center;
-    }
+  .error-container {
+    margin-top: 1rem;
+    text-align: center;
+  }
 </style>
