@@ -4,6 +4,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Azure.AI.DocumentIntelligence;
 using Azure;
+using System.Text;
 using System.Text.Json;
 
 namespace ReceiptExtraction.Functions;
@@ -17,6 +18,101 @@ public class AnalyzeReceipt
     {
         _client = client;
         _logger = logger;
+    }
+
+    private static string? NormalizeText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string? GetSpanText(IReadOnlyList<DocumentSpan>? spans, string? content)
+    {
+        if (spans is null || spans.Count == 0 || string.IsNullOrEmpty(content))
+        {
+            return null;
+        }
+
+        StringBuilder builder = new();
+
+        foreach (DocumentSpan span in spans.OrderBy(span => span.Offset))
+        {
+            if (span.Offset >= content.Length)
+            {
+                continue;
+            }
+
+            int length = Math.Min(span.Length, content.Length - span.Offset);
+            if (length <= 0)
+            {
+                continue;
+            }
+
+            builder.Append(content.Substring(span.Offset, length));
+            builder.Append(' ');
+        }
+
+        return NormalizeText(builder.ToString());
+    }
+
+    private static string? GetFieldText(DocumentField? field, AnalyzeResult result)
+    {
+        return NormalizeText(field?.ValueString)
+            ?? NormalizeText(field?.Content)
+            ?? GetSpanText(field?.Spans, result.Content);
+    }
+
+    // Raw OCR item text often includes quantity and price values; strip those once so the fallback description keeps only the product text.
+    private static string RemoveFirstInvariant(string source, string value)
+    {
+        int index = source.IndexOf(value, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+        {
+            return source;
+        }
+
+        return string.Concat(source.AsSpan(0, index), " ", source.AsSpan(index + value.Length));
+    }
+
+    private static string? GetDescription(DocumentField itemField, IReadOnlyDictionary<string, DocumentField> itemValues, AnalyzeResult result)
+    {
+        if (itemValues.TryGetValue("Description", out DocumentField? descriptionField))
+        {
+            string? mappedDescription = GetFieldText(descriptionField, result);
+            if (!string.IsNullOrWhiteSpace(mappedDescription))
+            {
+                return mappedDescription;
+            }
+        }
+
+        string? rawItemText = GetFieldText(itemField, result);
+        if (string.IsNullOrWhiteSpace(rawItemText))
+        {
+            return null;
+        }
+
+        string fallbackDescription = rawItemText;
+        foreach (string fieldName in new[] { "Quantity", "Price", "TotalPrice" })
+        {
+            if (!itemValues.TryGetValue(fieldName, out DocumentField? field))
+            {
+                continue;
+            }
+
+            string? fieldText = GetFieldText(field, result);
+            if (string.IsNullOrWhiteSpace(fieldText))
+            {
+                continue;
+            }
+
+            fallbackDescription = RemoveFirstInvariant(fallbackDescription, fieldText);
+        }
+
+        return NormalizeText(fallbackDescription);
     }
 
     private async Task<IReadOnlyList<ReceiptItem>> GetReceiptItemsAsync(BinaryData imageData, CancellationToken cancellationToken)
@@ -57,20 +153,26 @@ public class AnalyzeReceipt
                 continue;
             }
 
-            if (!itemValues.TryGetValue("Description", out DocumentField? descriptionField) ||
-                string.IsNullOrWhiteSpace(descriptionField.ValueString))
-            {
-                _logger.LogWarning("Skipping receipt item because it is missing a description.");
-                continue;
-            }
-
             decimal? price = null;
             if (itemValues.TryGetValue("TotalPrice", out DocumentField? totalPriceField))
             {
                 price = totalPriceField.ValueCurrency is { Amount: double amount } ? (decimal?)amount : null;
             }
 
-            items.Add(new ReceiptItem(descriptionField.ValueString, price));
+            string? description = GetDescription(itemField, itemValues, result);
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                if (price is null)
+                {
+                    _logger.LogWarning("Skipping receipt item because both the description and price were missing.");
+                    continue;
+                }
+
+                description = "Unknown item"; // Last resort description
+                _logger.LogWarning("Using placeholder description for receipt item with price {Price}. Raw item text: {RawItemText}", price, GetFieldText(itemField, result) ?? "<none>");
+            }
+
+            items.Add(new ReceiptItem(description, price));
         }
 
         return items;
