@@ -69,8 +69,28 @@
         body: formData,
       });
 
+      // Extract the error message from the response
       if (!response.ok) {
-        throw new Error("Failed to extract receipt");
+        const contentType = response.headers.get("content-type") ?? "";
+        let message = response.statusText;
+        try {
+          if (contentType.includes("application/json")) {
+            const body = await response.json();
+            if (typeof body === "string") {
+              message = body;
+            } else if (body && typeof body === "object") {
+              message = body.message ?? body.detail ?? body.title ?? message;
+            }
+          } else {
+            const text = await response.text();
+            if (text) {
+              message = text;
+            }
+          }
+        } catch {
+          // fall back to statusText
+        }
+        throw new Error(message);
       }
 
       const data = await response.json();

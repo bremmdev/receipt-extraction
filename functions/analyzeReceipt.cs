@@ -123,10 +123,33 @@ public class AnalyzeReceipt
         {
             operation = await _client.AnalyzeDocumentAsync(WaitUntil.Completed, "prebuilt-receipt", imageData, cancellationToken: cancellationToken);
         }
+
+        // catch the error and return the appropriate error message and status code
         catch (RequestFailedException ex)
         {
-            _logger.LogWarning(ex, "Document Intelligence rejected the receipt analysis request.");
-            throw new InvalidOperationException("Receipt analysis failed. Make sure the uploaded file is a supported receipt image and try again.", ex);
+            string message = ex.Status switch
+            {
+                400 => "Receipt analysis failed. Make sure the uploaded file is a supported receipt image and try again.",
+                401 or 403 => "Receipt analysis failed due to an authorization error.",
+                404 => "Receipt analysis failed. The analysis model was not found.",
+                429 => "Receipt analysis failed due to too many requests. Please try again later.",
+                _ => "Receipt analysis failed due to an unexpected error. Please try again later."
+            };
+
+            int responseStatus = ex.Status switch
+            {
+                400 => StatusCodes.Status400BadRequest,
+                401 or 403 => StatusCodes.Status401Unauthorized,
+                404 => StatusCodes.Status404NotFound,
+                429 => StatusCodes.Status429TooManyRequests,
+                _ => StatusCodes.Status500InternalServerError
+            };
+
+            _logger.LogWarning(ex, "Document Intelligence request failed with status {Status}.", ex.Status);
+
+            var ioex = new InvalidOperationException(message, ex);
+            ioex.Data["StatusCode"] = responseStatus;
+            throw ioex;
         }
 
         AnalyzeResult result = operation.Value;
@@ -238,8 +261,12 @@ public class AnalyzeReceipt
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning(ex, "Receipt analysis failed validation.");
-            return new BadRequestObjectResult(ex.Message);
+            _logger.LogWarning(ex, "Receipt analysis failed.");
+
+            // carry the intended status code up from GetReceiptItemsAsync
+            return ex.Data["StatusCode"] is int statusCode
+                ? new ObjectResult(ex.Message) { StatusCode = statusCode }
+                : new BadRequestObjectResult(ex.Message);
         }
         catch (Exception ex)
         {
